@@ -3,13 +3,14 @@ using System.Net.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Server.Services;
+using shared;
 
 namespace udp_game_example;
 
 public class UdpGameServerTests
 {
     [Fact]
-    public async Task UdpEchoServer_EchoesBackData()
+    public async Task UdpServer_SendsGameUpdates_AfterTwoPlayersReady()
     {
         using IHost host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
@@ -20,26 +21,45 @@ public class UdpGameServerTests
         
         await host.StartAsync();
 
-        var payload = new byte[] { 1, 2, 3, 4, 5 };
+        
+        using var client1 = new UdpClient();
+        using var client2 = new UdpClient();
+        client1.Client.ReceiveTimeout = 3000;
+        client2.Client.ReceiveTimeout = 3000;
 
-        using var client = new UdpClient();
-        client.Client.ReceiveTimeout = 2000;
+        var serverEp = new IPEndPoint(IPAddress.Loopback, 11000);
+        
+        await client1.SendAsync([MessageTypes.JOIN_GAME], 1, serverEp);
+        await client2.SendAsync([MessageTypes.JOIN_GAME], 1, serverEp);
+        
+        await client1.SendAsync([MessageTypes.PLAYER_READY], 1, serverEp);
+        await client2.SendAsync([MessageTypes.PLAYER_READY], 1, serverEp);
+        
+        var remote1 = new IPEndPoint(IPAddress.Any, 0);
+        var remote2 = new IPEndPoint(IPAddress.Any, 0);
 
-        await client.SendAsync(payload, payload.Length, new IPEndPoint(IPAddress.Loopback, 11000));
+        byte[] update1;
+        byte[] update2;
 
-        var remoteEP = new IPEndPoint(IPAddress.Any, 0);
-        byte[] echoed;
         try
         {
-            echoed = client.Receive(ref remoteEP);
+            update1 = client1.Receive(ref remote1);
+            update2 = client2.Receive(ref remote2);
         }
         finally
         {
             await host.StopAsync();
         }
 
-        Assert.Equal(payload, echoed);
-        Assert.Equal(IPAddress.Loopback, remoteEP.Address);
-        Assert.Equal(11000, remoteEP.Port);
+        Assert.NotNull(update1);
+        Assert.NotNull(update2);
+        Assert.True(update1.Length >= 1);
+        Assert.True(update2.Length >= 1);
+        Assert.Equal(MessageTypes.GAME_UPDATE, update1[0]);
+        Assert.Equal(MessageTypes.GAME_UPDATE, update2[0]);
+        Assert.Equal(IPAddress.Loopback, remote1.Address);
+        Assert.Equal(IPAddress.Loopback, remote2.Address);
+        Assert.Equal(11000, remote1.Port);
+        Assert.Equal(11000, remote2.Port);
     }
 }
