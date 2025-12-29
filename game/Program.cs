@@ -9,7 +9,7 @@ while (!Raylib.WindowShouldClose())
     Raylib.BeginDrawing();
     Raylib.ClearBackground(Color.White);
 
-    Raylib.DrawText("Peter Pan is a sexist pig!", 12, 12, 20, Color.Black);
+    Raylib.DrawText("Hello!", 12, 12, 20, Color.Black);
 
     Raylib.EndDrawing();
 }
