@@ -19,4 +19,8 @@
         <Using Include="Xunit"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="../server/server.csproj" />
+    </ItemGroup>
+
 </Project>
